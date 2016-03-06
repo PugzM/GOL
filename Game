@@ -1,0 +1,240 @@
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.lang.reflect.Array;
+import java.util.Hashtable;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.swing.*;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+
+public class Game implements MouseListener, MouseMotionListener, ActionListener, Runnable, ChangeListener {
+	
+	final int WIDTH = 90;
+	final int HEIGHT = 90;
+	
+	static final int SPEED_MIN = 10;
+	static final int SPEED_MAX = 600;
+	static final int SPEED_INIT = 300;
+	static int speedInt;
+	static String stringTime = "300";
+	
+	JFrame frame = new JFrame("Game of Life");
+	//the panel is the a 'panel' within the JFrame. This is where we will draw.
+	boolean[][] grid = new boolean[WIDTH][HEIGHT];
+	MyPanel panel = new MyPanel(grid);
+	JSlider speed = new JSlider(JSlider.HORIZONTAL, SPEED_MIN, SPEED_MAX, SPEED_INIT);
+	JButton step = new JButton("Step");
+	JButton start = new JButton("Start");
+	JButton stop = new JButton ("Stop");
+	
+	
+	Container south = new Container();
+	boolean running = false;
+	
+	
+	
+	public Game(){
+		frame.setSize(1000, 1000);
+		frame.setLayout(new BorderLayout());
+		//Add the mouse listener for the panel
+		panel.addMouseListener(this);
+		panel.addMouseMotionListener(this);
+		Hashtable speedLabels = new Hashtable();
+		speedLabels.put( new Integer( SPEED_MIN ), new JLabel("Fast") );
+		speedLabels.put( new Integer( SPEED_INIT ), new JLabel("Set Speed") );
+		speedLabels.put( new Integer( SPEED_MAX ), new JLabel("Slow") );
+		speed.setLabelTable( speedLabels );
+
+		speed.setPaintLabels(true);
+
+		
+		frame.add(panel, BorderLayout.CENTER);
+		//Create the south container and add things to it.
+		south.setLayout(new GridLayout(1,4));
+		south.add(start);
+		start.addActionListener(this);
+		south.add(step);
+		step.addActionListener(this);
+		south.add(stop);
+		stop.addActionListener(this);
+		south.add(speed);
+		speed.addChangeListener(this);
+		frame.add(south, BorderLayout.SOUTH);
+
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.setVisible(true);
+	}
+
+	public static void main(String[] args) {
+		new Game();
+	}
+
+	
+	
+	
+	
+
+	@Override
+	public void actionPerformed(ActionEvent ev) {
+		if (ev.getSource().equals(step) == true){
+			if (running == false){
+			step();
+			frame.repaint();
+			}
+		}
+		if (ev.getSource().equals(start)){
+			if (running == false){
+				running = true;
+				Thread t = new Thread(this);
+				//start eventually calls the 'run' method.
+				t.start();
+			}
+		}
+		if(ev.getSource().equals(stop)){
+			running = false;
+		}
+		
+	}
+	
+	public void run() {
+		while (running == true){
+			
+			Long convert = Long.parseLong(stringTime);
+			long time = convert.longValue();
+			step();
+			frame.repaint();
+			try{
+			Thread.sleep(time);
+			} catch(Exception ex){
+				ex.printStackTrace();
+			}
+		}
+	}
+	
+	
+	//This will take one step in the simulation.
+	//For every cell, count it's neighbours.
+	//If it is alive and has 2 or 3 neighbours, it stays alive; otherwise it dies.
+	//If it is dead and has 3 neighbours, it comes back to life; otherwise it stays dead.
+	public void step(){
+		boolean[][] newGrid = new boolean[grid.length][grid.length];
+		for (int x = 0; x < grid.length; x++){
+			for (int y = 0; y < grid.length; y++){
+				int neighbourCount = 0;
+				//the y > 0 just checks that we don't go off the top of the array.
+				
+				//up
+				if(y > 0 && grid[x][y-1] == true){
+					neighbourCount++;
+				}
+				//left
+				if(x > 0 && grid[x-1][y] == true){
+					neighbourCount++;
+				}
+				//down and right
+				if (y < grid.length - 1 && x < grid.length - 1 && grid[x+1][y+1] == true){
+					neighbourCount++;
+				}
+				//Five more checks!
+				
+				//down
+				if(y < grid.length - 1 && grid[x][y+1] == true){
+					neighbourCount++;
+				}
+				//right
+				if(x < grid.length - 1 && grid[x+1][y] == true){
+					neighbourCount++;
+				}
+				//up and right
+				if (y > 0 && x < grid.length - 1 && grid[x+1][y-1] == true){
+					neighbourCount++;
+				}
+				//down and left
+				if (y < grid.length - 1 && x > 0 && grid[x-1][y+1] == true){
+					neighbourCount++;
+				}
+				//up and left
+				if (y > 0 && x > 0 && grid[x-1][y-1] == true){
+					neighbourCount++;
+				}
+				
+				
+				if (grid[x][y] == true) {
+					//if it has two or three neighbours.
+					if (neighbourCount == 2 || neighbourCount == 3){
+						newGrid[x][y] = true;
+					}
+					else{
+						newGrid[x][y] = false;
+					}
+				}
+				else{//If it is dead, and it has 3 neighbours, back to life, else dead.
+					if (grid[x][y] == false){
+						//If you set this to 2 or 3 neighbours, you get an explosion of life.
+						if (neighbourCount == 3){
+							newGrid[x][y] = true;
+						}
+						else{
+							newGrid[x][y] = false;
+						}
+					}
+					
+				}
+				
+			}
+		}
+		grid = newGrid;
+		panel.setGrid(newGrid);
+		frame.repaint();
+		
+	}
+
+	@Override
+	public void stateChanged(ChangeEvent e) {
+		JSlider source = (JSlider)e.getSource();
+		 if (!source.getValueIsAdjusting()) {
+		        int speedInt = (int)source.getValue();
+		        stringTime = Integer.toString(speedInt);
+		       
+		    }
+	}
+
+	@Override
+	public void mouseDragged(MouseEvent ev) {
+		//System.out.println(ev.getX() + "," + ev.getY());
+		//int col = Math.min(ev.getY() / (panel.getHeight() / HEIGHT), HEIGHT - 1); // do math to figure this out!
+		//int row = Math.min(ev.getX() / (panel.getWidth() / WIDTH), WIDTH - 1); // do math to figure this out!
+		//The ! makes it equal to the opposite of what it was.
+		//grid[row][col] = !grid[row][col];
+		//frame.repaint();
+	}
+
+	@Override
+	public void mouseMoved(MouseEvent ev) {
+	}
+	public void mouseClicked(MouseEvent ev) {		
+	}
+	public void mouseEntered(MouseEvent ev) {		
+	}
+	public void mouseExited(MouseEvent ev) {		
+	}
+	public void mousePressed(MouseEvent ev) {		
+	}
+	public void mouseReleased(MouseEvent ev) {
+		System.out.println(ev.getX() + "," + ev.getY());
+		
+		double row = Math.min(ev.getX() / (panel.getWidth() / WIDTH), WIDTH - 1);
+		
+		double col = Math.min(ev.getY() / (panel.getHeight() / HEIGHT), HEIGHT - 1);
+		
+		grid[(int)row][(int)col] = !grid[(int)row][(int)col];
+		frame.repaint();
+	}
+	
+
+}
